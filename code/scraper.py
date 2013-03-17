@@ -26,7 +26,7 @@ def get_indices():
 def get_dates():
     today = datetime.datetime.now()
 
-    start_date = datetime.date(2012,1,1).strftime('%d-%m-%Y')
+    start_date = today.replace(year=today.year-1).strftime('%d-%m-%Y')
     end_date   = today.strftime('%d-%m-%Y')
 
     return start_date, end_date
@@ -35,19 +35,14 @@ def send_request(index, start_date, end_date):
     params = urllib.urlencode({'indexType': index, 'fromDate': start_date, 'toDate': end_date})
     url    = 'http://www.nseindia.com/products/dynaContent/equities/indices/historicalindices.jsp?%s' % params
 
-    print 'debug phase 1', url
     fetch_page(url)
 
 def get_csv(index, start_date, end_date):
-    #url = 'http://www.nseindia.com/content/indices/histdata/%s%s-%s.csv' % (index.replace(' ', '%20'), start_date, end_date)
-    
-    url = 'http://www.nseindia.com/content/indices/histdata/CNX%20NIFTY02-01-2012-17-03-2013.csv'
-    print 'debug phase 2', url
+    url = 'http://www.nseindia.com/content/indices/histdata/%s%s-%s.csv' % (index.replace(' ', '%20'), start_date, end_date)
 
     flag = False
 
     handle = fetch_page(url)
-    print 'debug. got handle'
     f = open('../data/%s' % index, 'w')
     f.write(handle.read())
     f.close()
