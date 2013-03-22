@@ -40,7 +40,7 @@ def get_dates():
 def get_csv(index, start_date, end_date):
     file_name = index.replace(' ', '_') + '.csv'
 
-    if file_name in os.listdir('../data/'): return
+    if file_name in os.listdir(data_folder): return
 
     params = urllib.urlencode({'indexType': index, 'fromDate': start_date, 'toDate': end_date})
     fetch_page('http://www.nseindia.com/products/dynaContent/equities/indices/historicalindices.jsp?%s' % params)
@@ -48,7 +48,7 @@ def get_csv(index, start_date, end_date):
     time.sleep(random.uniform(0,2))
 
     handle = fetch_page('http://www.nseindia.com/content/indices/histdata/%s%s-%s.csv' % (urllib.quote(index), start_date, end_date))
-    f = open('../data/%s' % file_name, 'w')
+    f = open(data_folder + file_name, 'w')
     f.write(handle.read())
     f.close()
 
@@ -64,7 +64,7 @@ def scraper_main():
 def get_closes(index):
     closes = []
 
-    with open('../data/' + index, 'r') as f:
+    with open(data_folder + index, 'r') as f:
         reader = csv.reader(f)
         reader.next()
 
@@ -79,7 +79,7 @@ def calc(closes, days_range):
     return average
 
 def sma_main():
-    indexes = os.listdir('../data/')
+    indexes = os.listdir(data_folder)
     f = open('master_sheet.csv', 'w')
     csv_file = csv.writer(f)
 
@@ -118,6 +118,7 @@ def html_row_generator(row):
 def table_main():
     markup = ''''''
 
+
     html_template = open('template.html').read()
 
     with open('master_sheet.csv') as in_file:
@@ -131,7 +132,12 @@ def table_main():
     f.write(html_template % (end_date, markup))
     f.close()
 
-if __name__ == '__main__':
+if __name__ == '__main__': 
+    data_folder = '../data/' + datetime.datetime.now().strftime('%d-%m-%Y') + '/'
+
+    if not os.path.exists(data_folder):
+        os.makedirs(data_folder)
+    
     scraper_main()
     sma_main()
     table_main()    
