@@ -2,8 +2,7 @@ import csv
 import sqlite3
 import datetime
 
-def write_rows():
-    with open('cm22MAR2013bhav.csv', 'r') as f:
+def write_rows(f):
     reader = csv.reader(f)
         
     headers = reader.next()
@@ -29,5 +28,7 @@ if __name__ == '__main__':
     conn = sqlite3.connect('bhavcopy.db')
     c = conn.cursor()
 
-    write_rows()
+    with open('cm22MAR2013bhav.csv', 'r') as f:
+        write_rows(f)
+    
     read_rows()
