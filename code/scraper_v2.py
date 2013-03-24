@@ -32,7 +32,7 @@ def get_indices():
 def get_dates():
     today = datetime.datetime.now()
 
-    start_date = today.replace(year=today.year-1).strftime('%d-%m-%Y')
+    start_date = (today-datetime.timedelta(days=random.randint(400,500))).strftime('%d-%m-%Y')
     end_date   = today.strftime('%d-%m-%Y')
 
     return start_date, end_date
@@ -45,7 +45,7 @@ def get_csv(index, start_date, end_date):
     params = urllib.urlencode({'indexType': index, 'fromDate': start_date, 'toDate': end_date})
     fetch_page('http://www.nseindia.com/products/dynaContent/equities/indices/historicalindices.jsp?%s' % params)
 
-    time.sleep(random.uniform(0,2))
+    time.sleep(random.randint(2,6))
 
     handle = fetch_page('http://www.nseindia.com/content/indices/histdata/%s%s-%s.csv' % (urllib.quote(index), start_date, end_date))
     f = open(data_folder + file_name, 'w')
