@@ -4,6 +4,49 @@ import datetime
 import os
 import math
 
+def skipheader(reader):
+    try:
+        headers = reader.next()
+        return True
+    except:
+        print '*** DEBUG, got an empty file *** ', filename, filedate
+        return False 
+
+def parsedate(dstamp):
+    try:
+        return datetime.datetime.strptime(dstamp, '%d-%b-%y')
+    except ValueError:
+        try:
+            return datetime.datetime.strptime(dstamp, '%d-%b-%Y') # format changed in later  years
+        except ValueError:
+            print 'DEBUG: failed to parse date given as ', dstamp
+            return None    
+
+def fill_fo_volt_table(c, con, path):
+    for filename in sorted(os.listdir(path)):
+        filedate = datetime.datetime.strptime(filename.split('.')[0], '%d%m%Y')
+        is_updated = c.execute('select * from update_status where date=? and table_name=?',[filedate, 'fo_volt']).fetchone()
+        if is_updated: 
+            print 'fo_volt table is already up-to-date for ', filedate
+            continue
+        
+        with open(path + filename, 'r') as f:
+            reader = csv.reader(f)
+            if not skipheader(reader): continue
+            
+            for row in reader:
+                if row == []: continue
+                pdate = parsedate(row[0])
+                if not pdate: continue
+
+                volt = float(row[-1])
+                if volt < 1.0: volt = volt * 100.0 # From 29 Mar 2011, they changed it
+                c.execute('insert into fo_volt values (?,?,?)', [row[1], pdate, volt])
+        
+        print 'DEBUG: updated fo_volt for', filename, filedate
+        c.execute('insert into update_status values (?,?,?)', ['fo_volt', filedate, 1]) # This stmt is executed only once per file       
+        con.commit()
+
 def fill_fo_price_table(c, con, path):
     for filename in sorted(os.listdir(path)):
         filedate = datetime.datetime.strptime(filename.split('.')[0], '%d%m%Y')
@@ -15,23 +58,16 @@ def fill_fo_price_table(c, con, path):
         
         with open(path + filename, 'r') as f:
             reader = csv.reader(f)
-            try:
-                headers = reader.next()
-            except:
-                print '*** DEBUG, got an empty file *** ', filename, filedate
-                continue 
-
+            if not skipheader(reader): continue
+            
             for row in reader:
                 if row == [] or row[1] != 'OPTSTK': continue
-
-                try:
-                    row[0] = datetime.datetime.strptime(row[0], '%d-%b-%y')
-                except ValueError:
-                    row[0] = datetime.datetime.strptime(row[0], '%d-%b-%Y') # format changed in later  years
+                pdate = parsedate(row[0])
+                if not pdate: continue
                 
-                c.execute('insert into fo_prices values (?,?,?,?)', [row[2], row[0], row[1], float(row[4])])
+                c.execute('insert into fo_prices values (?,?,?,?)', [row[2], pdate, row[1], float(row[4])])
         
-        print 'DEBUG: updated data for', filename, filedate
+        print 'DEBUG: updated fo_prices data for', filename, filedate
         c.execute('insert into update_status values (?,?,?)', ['fo_prices', filedate, 1]) # This stmt is executed only once per file       
         con.commit()
 
@@ -59,7 +95,9 @@ def create_tables(c):
     c.execute('''create table if not exists fo_prices (symbol text not null, date timestamp not null, instrument text, 
                  price real, PRIMARY KEY(symbol, date))''') 
     
-   
+    c.execute('''create table if not exists fo_volt (symbol text not null, date timestamp not null, 
+                 ann_volt real, PRIMARY KEY(symbol, date))''') 
+    
     
 if __name__ == '__main__':
     conn = sqlite3.connect('../data/equity.db', detect_types=sqlite3.PARSE_DECLTYPES)
@@ -70,10 +108,9 @@ if __name__ == '__main__':
    
     create_tables(cur)
 
-    dir_path = '../data/equity/'
-    fill_fo_price_table(cur, conn, dir_path)
-    fill_returns_table(cur)
+    #fill_fo_price_table(cur, conn, path ='../data/fosett/')
+    fill_fo_volt_table(cur, conn, path ='../data/fovolt/')
+    #fill_returns_table(cur)
 
     conn.commit()
     conn.close()
-        
