@@ -9,7 +9,7 @@ def skipheader(reader):
         headers = reader.next()
         return True
     except:
-        print '*** DEBUG, got an empty file *** ', filename, filedate
+        print '*** DEBUG, got an empty file *** '
         return False 
 
 def parsedate(dstamp):
@@ -41,7 +41,7 @@ def fill_fo_volt_table(c, con, path):
 
                 volt = float(row[-1])
                 if volt < 1.0: volt = volt * 100.0 # From 29 Mar 2011, they changed it
-                c.execute('insert into fo_volt values (?,?,?)', [row[1], pdate, volt])
+                c.execute('insert or replace into fo_volt values (?,?,?)', [row[1], pdate, volt])
         
         print 'DEBUG: updated fo_volt for', filename, filedate
         c.execute('insert into update_status values (?,?,?)', ['fo_volt', filedate, 1]) # This stmt is executed only once per file       
@@ -71,7 +71,18 @@ def fill_fo_price_table(c, con, path):
         c.execute('insert into update_status values (?,?,?)', ['fo_prices', filedate, 1]) # This stmt is executed only once per file       
         con.commit()
 
-def fill_returns_table(c):
+
+# To be done with caution - this table is hand fixed!!!
+def _fill_fo_returns_backup_table(c, con):
+    c.execute('INSERT or replace INTO fo_returns_backup SELECT * FROM fo_returns where adj_flag=1')
+    con.commit()
+
+def restore_handfix_table(c, con):
+    c.execute('INSERT or replace INTO fo_returns SELECT * FROM fo_returns_backup where adj_flag > 0')
+    con.commit()
+    
+def fill_returns_table(c, con):
+    
     sym_list = c.execute('select distinct symbol from fo_prices').fetchall()
     for t in sym_list:
         stock = t[0]
@@ -84,6 +95,9 @@ def fill_returns_table(c):
             adj_flag   = 0
 
             c.execute('insert or replace into fo_returns values (?,?,?,?,?)', [stock, rows[i][1], raw_return, adj_return, adj_flag])
+
+    con.commit()
+    restore_handfix_table(c, con)
 
 def create_tables(c):
     c.execute('''create table if not exists update_status (table_name text not null, date timestamp not null,  
@@ -98,19 +112,21 @@ def create_tables(c):
     c.execute('''create table if not exists fo_volt (symbol text not null, date timestamp not null, 
                  ann_volt real, PRIMARY KEY(symbol, date))''') 
     
+    c.execute('''create table if not exists fo_returns_backup (symbol text not null, date timestamp not null, raw_return real, 
+                 adj_return real, adj_flag integer, PRIMARY KEY(symbol, date))''')
+    
     
 if __name__ == '__main__':
     conn = sqlite3.connect('../data/equity.db', detect_types=sqlite3.PARSE_DECLTYPES)
     cur = conn.cursor()
-
     cur.execute('PRAGMA synchronous=OFF') # Make bulk inserts go faster
     conn.commit()
    
     create_tables(cur)
 
-    #fill_fo_price_table(cur, conn, path ='../data/fosett/')
+    fill_fo_price_table(cur, conn, path ='../data/fosett/')
     fill_fo_volt_table(cur, conn, path ='../data/fovolt/')
-    #fill_returns_table(cur)
-
+    fill_returns_table(cur, conn)
+    
     conn.commit()
     conn.close()
